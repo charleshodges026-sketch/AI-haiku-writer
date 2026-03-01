@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>俳句 · Haiku</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #e8e0d0;
+    font-family: 'Cormorant Garamond', serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow-x: hidden;
+  }
+
+  .bg-circle {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bg-circle-1 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, #c8a96e22, transparent);
+    top: -120px; left: -120px;
+    animation: drift1 14s ease-in-out infinite;
+  }
+  .bg-circle-2 {
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, #6e9cb022, transparent);
+    bottom: -100px; right: -100px;
+    animation: drift2 17s ease-in-out infinite;
+  }
+  @keyframes drift1 {
+    0%,100% { transform: translate(0,0); }
+    50% { transform: translate(40px,30px); }
+  }
+  @keyframes drift2 {
+    0%,100% { transform: translate(0,0); }
+    50% { transform: translate(-30px,-20px); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 540px;
+    text-align: center;
+  }
+
+  .title {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 0.5em;
+    color: #c8a96e;
+    text-transform: uppercase;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    font-weight: 300;
+    font-style: italic;
+    color: #555;
+    letter-spacing: 0.2em;
+    margin-top: 0.3rem;
+  }
+
+  .divider {
+    width: 1px;
+    height: 38px;
+    background: linear-gradient(to bottom, transparent, #c8a96e88, transparent);
+    margin: 1.6rem auto;
+  }
+
+  .input-label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+    font-weight: 300;
+  }
+
+  #topic {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #2c2c2c;
+    padding: 0.5rem 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    font-style: italic;
+    color: #e8e0d0;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  #topic::placeholder { color: #383838; }
+  #topic:focus { border-bottom-color: #c8a96e; }
+
+  #generate-btn {
+    margin-top: 1.6rem;
+    background: transparent;
+    border: 1px solid #c8a96e;
+    color: #c8a96e;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    padding: 0.65rem 2.5rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.3s;
+  }
+  #generate-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #c8a96e;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  #generate-btn:hover::before { transform: scaleX(1); }
+  #generate-btn:hover { color: #0d0d0d; }
+  #generate-btn .btn-text { position: relative; z-index: 1; }
+  #generate-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  #generate-btn:disabled::before { display: none; }
+  #generate-btn:disabled:hover { color: #c8a96e; }
+
+  .dots { display: inline-flex; gap: 5px; align-items: center; }
+  .dot {
+    width: 4px; height: 4px;
+    background: currentColor;
+    border-radius: 50%;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%,100% { opacity: 0.2; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+
+  #error {
+    color: #b06060;
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: 1rem;
+    min-height: 1.2rem;
+  }
+
+  #haiku-display {
+    margin-top: 2.5rem;
+    padding: 2.2rem;
+    border: 1px solid #1e1e1e;
+    background: rgba(255,255,255,0.018);
+    position: relative;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  #haiku-display.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #haiku-display::before, #haiku-display::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    border-color: #c8a96e66;
+    border-style: solid;
+  }
+  #haiku-display::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  #haiku-display::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  .haiku-line {
+    font-size: 1.45rem;
+    font-weight: 300;
+    line-height: 2;
+    color: #e8e0d0;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
+  .haiku-line:nth-child(2) { font-style: italic; color: #c0b8a8; }
+  .haiku-line.shown { opacity: 1; transform: translateY(0); }
+
+  #haiku-topic {
+    margin-top: 1.2rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    color: #444;
+    text-transform: uppercase;
+  }
+
+  .actions {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 1.2rem;
+    justify-content: center;
+  }
+  .action-btn {
+    background: transparent;
+    border: none;
+    color: #444;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    transition: color 0.2s;
+  }
+  .action-btn:hover { color: #c8a96e; }
+
+  #history {
+    margin-top: 2.8rem;
+    border-top: 1px solid #181818;
+    padding-top: 1.8rem;
+    display: none;
+  }
+  .history-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.35em;
+    color: #383838;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .history-item {
+    padding: 0.9rem 0;
+    border-bottom: 1px solid #151515;
+    text-align: left;
+    cursor: pointer;
+  }
+  .history-item:hover .hist-line { color: #c8a96e88; }
+  .hist-topic {
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: #333;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .hist-line {
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.7;
+    transition: color 0.2s;
+  }
+
+  #toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #c8a96e;
+    color: #0d0d0d;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.2em;
+    padding: 0.45rem 1.5rem;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-circle bg-circle-1"></div>
+<div class="bg-circle bg-circle-2"></div>
+
+<div class="container">
+  <div class="title">俳句 · Haiku</div>
+  <div class="subtitle">seventeen syllables, infinite worlds</div>
+  <div class="divider"></div>
+
+  <label class="input-label" for="topic">Your theme or subject</label>
+  <input id="topic" type="text" placeholder="a winter morning, loss, the sea at dusk…" autocomplete="off" />
+
+  <br />
+  <button id="generate-btn" disabled>
+    <span class="btn-text">Compose</span>
+  </button>
+
+  <div id="error"></div>
+
+  <div id="haiku-display">
+    <div id="haiku-lines"></div>
+    <div id="haiku-topic"></div>
+    <div class="actions">
+      <button class="action-btn" onclick="copyHaiku()">Copy</button>
+      <button class="action-btn" onclick="generate()">Again</button>
+    </div>
+  </div>
+
+  <div id="history">
+    <div class="history-label">Earlier verses</div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div id="toast">Copied</div>
+
+<script>
+  const topicInput = document.getElementById('topic');
+  const generateBtn = document.getElementById('generate-btn');
+  const errorEl = document.getElementById('error');
+  const haikuDisplay = document.getElementById('haiku-display');
+  const haikuLinesEl = document.getElementById('haiku-lines');
+  const haikuTopicEl = document.getElementById('haiku-topic');
+  const historyEl = document.getElementById('history');
+  const historyList = document.getElementById('history-list');
+  const toast = document.getElementById('toast');
+
+  let currentHaiku = null;
+  let pastHaiku = [];
+  let loading = false;
+
+  topicInput.addEventListener('input', () => {
+    generateBtn.disabled = !topicInput.value.trim() || loading;
+  });
+
+  topicInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') generate();
+  });
+
+  generateBtn.addEventListener('click', generate);
+
+  function setLoading(state) {
+    loading = state;
+    generateBtn.disabled = state || !topicInput.value.trim();
+    const btnText = generateBtn.querySelector('.btn-text');
+    if (state) {
+      btnText.innerHTML = '<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
+    } else {
+      btnText.textContent = 'Compose';
+    }
+  }
+
+  async function generate() {
+    const topic = topicInput.value.trim();
+    if (!topic || loading) return;
+
+    setLoading(true);
+    errorEl.textContent = '';
+    haikuDisplay.classList.remove('visible');
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: `Write a single haiku about: "${topic}".
+Return ONLY three lines, each on its own line. No title, no explanation, no extra punctuation. Make it evocative, imagistic, and surprising — avoid clichés. Follow the 5-7-5 syllable structure.`
+          }]
+        })
+      });
+
+      const data = await res.json();
+      const text = data.content?.[0]?.text?.trim();
+      if (!text) throw new Error('empty');
+
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 3);
+      if (lines.length < 3) throw new Error('incomplete');
+
+      currentHaiku = { lines, topic };
+      showHaiku(currentHaiku);
+
+      if (pastHaiku.length === 0 || pastHaiku[0].topic !== topic || pastHaiku[0].lines[0] !== lines[0]) {
+        pastHaiku.unshift(currentHaiku);
+        if (pastHaiku.length > 5) pastHaiku.pop();
+        renderHistory();
+      }
+    } catch (e) {
+      errorEl.textContent = 'The muse is silent. Try again.';
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showHaiku({ lines, topic }) {
+    haikuLinesEl.innerHTML = '';
+    haikuTopicEl.textContent = topic;
+
+    lines.forEach(line => {
+      const div = document.createElement('div');
+      div.className = 'haiku-line';
+      div.textContent = line;
+      haikuLinesEl.appendChild(div);
+    });
+
+    // Trigger layout then animate
+    requestAnimationFrame(() => {
+      haikuDisplay.classList.add('visible');
+      const lineEls = haikuLinesEl.querySelectorAll('.haiku-line');
+      lineEls.forEach((el, i) => {
+        setTimeout(() => el.classList.add('shown'), 100 + i * 300);
+      });
+    });
+  }
+
+  function renderHistory() {
+    const items = pastHaiku.slice(1);
+    if (items.length === 0) {
+      historyEl.style.display = 'none';
+      return;
+    }
+    historyEl.style.display = 'block';
+    historyList.innerHTML = '';
+    items.forEach((h, idx) => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `<div class="hist-topic">${h.topic}</div>` +
+        h.lines.map(l => `<div class="hist-line">${l}</div>`).join('');
+      div.addEventListener('click', () => {
+        currentHaiku = h;
+        topicInput.value = h.topic;
+        generateBtn.disabled = false;
+        showHaiku(h);
+      });
+      historyList.appendChild(div);
+    });
+  }
+
+  function copyHaiku() {
+    if (!currentHaiku) return;
+    navigator.clipboard.writeText(currentHaiku.lines.join('\n'));
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+</script>
+</body>
+</html>
